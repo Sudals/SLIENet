@@ -92,4 +92,4 @@ release/
   set with a fixed split seed (`slienet.data.get_loaders`); the 10K test set
   is used intact for final evaluation. Dcal ⊂ Dtrain and Dcal ∩ Dtest = ∅.
 - Training: deterministic cuDNN, seeded via `slienet.set_seed(seed)`.
-- Three seeds (`--seed 0/1/2`) are sufficient for the headline numbers.
+- Five seeds (`--seed 0/1/2/3/4`) are sufficient for the headline numbers.
