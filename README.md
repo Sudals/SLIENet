@@ -1,41 +1,45 @@
-# SLIENet: Beyond FLOPs Train-Full, Deploy-Partial Multi-Exit Inference
+# SLIENet: Beyond FLOPs — Train-Full, Deploy-Partial Multi-Exit Inference
 
-Anonymous repository for double-blind NeurIPS 2026 submission. Author and citation
-information will be added upon acceptance.
+Anonymous repository for double-blind NeurIPS 2026 submission. Author and
+citation information will be added upon acceptance.
 
 ## Overview
 
 This repository contains training, calibration, and deployment code for SLIENet,
 a multi-exit framework that compiles into a single static TensorRT engine via
 calibration-based selective ensemble of internal classifiers (ICs). Workstation
-training is in PyTorch; on-device evaluation runs on NVIDIA Jetson Orin Nano with
-TensorRT FP16 engines.
+training is in PyTorch; on-device evaluation runs on NVIDIA Jetson Orin Nano
+with TensorRT FP16 engines.
 
 ## Repository Structure
 
 ```
-slienet/
-├── data.py              # CIFAR-100 loaders + train/calibration/test split
-├── heads.py             # MixedPool IC head
-├── slie.py              # Calibration-based exhaustive subset search
-├── train.py             # Joint training with light self-distillation (LSD) loss
-├── models/
-│   ├── __init__.py
-│   └── resnet56.py      # ResNet-56 backbone with 6 IC heads
-└── deploy/              # ONNX export + TensorRT engine compilation scripts
+.
+├── slienet/                  # Library code (importable modules)
+│   ├── data.py               # CIFAR-100 loaders + train/calibration/test split
+│   ├── heads.py              # MixedPool IC head
+│   ├── slie.py               # Calibration-based exhaustive subset search
+│   ├── train.py              # Training loop with light self-distillation (LSD)
+│   └── models/
+│       └── resnet56.py       # ResNet-56 backbone with 6 IC heads
+├── scripts/                  # Command-line entry points
+│   ├── train.py              # CLI: train a backbone with given seed
+│   ├── eval.py               # CLI: per-IC evaluation on the test set
+│   ├── export_onnx.py        # CLI: export a truncated checkpoint to ONNX
+│   ├── build_trt.sh          # Shell: compile ONNX → TensorRT FP16 engine
+│   └── measure_trt.py        # CLI: latency / power / energy on Jetson
+├── README.md
+└── LICENSES.md               # Third-party assets and licenses
 ```
 
 The current snapshot includes the full training, calibration, and deployment
-pipeline for **ResNet-56**, which is the primary backbone used in the paper for
-all main results: Table 1 (per-IC accuracy), Tables 4–5 (Jetson Orin Nano
-latency, power, and energy), and Figure 4 (engine-call overhead). VGG-16-BN
-and MobileNetV1 results in Tables 2, 10, and 11 are reported as
-**generalization evidence** that the same SLIENet pipeline applies to other
-backbones; their backbone definitions follow standard CIFAR-100 implementations
-and are not part of the core contribution. The training and calibration code
-in this repository is backbone-agnostic — adapting to a new backbone requires
-only adding a new backbone class following the pattern in `models/resnet56.py`,
-with no changes to `train.py`, `slie.py`, or `heads.py`.
+pipeline for **ResNet-56**, the primary backbone used in the paper for all main
+results: Table 1 (per-IC accuracy), Tables 4–5 (Jetson Orin Nano latency,
+power, and energy), and Figure 4 (engine-call overhead). The training and
+calibration code is backbone-agnostic — adapting to a new backbone requires
+only adding a new backbone class following the pattern in
+`slienet/models/resnet56.py`, with no changes to `slienet/train.py`,
+`slienet/slie.py`, or `slienet/heads.py`.
 
 ## Requirements
 
@@ -61,71 +65,83 @@ No manual setup required.
 Train SLIENet on ResNet-56 with one seed:
 
 ```bash
-python -m slienet.train --arch resnet56 --epochs 100 --batch-size 128 --seed 0
+python scripts/train.py --arch resnet56 --epochs 100 --batch-size 128 --seed 0
 ```
 
 Reproduce the 5-seed mean reported in Table 1 of the paper:
 
 ```bash
 for seed in 0 1 2 3 4; do
-  python -m slienet.train --arch resnet56 --seed $seed
+  python scripts/train.py --arch resnet56 --seed $seed
 done
 ```
 
 Each run takes approximately 1–2 hours on an NVIDIA RTX 4090.
 
-### Calibration and SLIE subset selection
-
-After training, compute the optimal IC subset on the held-out calibration split
-(2,000 samples, disjoint from the test set):
+### Per-IC evaluation
 
 ```bash
-python -m slienet.slie --checkpoint checkpoints/resnet56_seed0.pth
+python scripts/eval.py --checkpoint checkpoints/resnet56_seed0.pth
 ```
 
-The exhaustive search over $2^k - 1$ subsets completes in under 1 s on a CPU
-for $k \le 6$.
+### Calibration and SLIE subset selection
+
+The calibration-based subset search is invoked from the same evaluation script
+by selecting the corresponding mode:
+
+```bash
+python scripts/eval.py --checkpoint checkpoints/resnet56_seed0.pth --mode slie
+```
+
+The exhaustive search over 2^k − 1 subsets completes in under 1 s on a CPU
+for k ≤ 6.
 
 ### Deployment (Jetson Orin Nano)
 
-Export a trained checkpoint to ONNX truncated at depth $k$, then compile to
-a single TensorRT FP16 engine:
+Three-step pipeline: export to ONNX, compile to TensorRT FP16, then measure
+on-device latency, power, and energy.
 
 ```bash
-# Export to ONNX (example: depth k=5, the recommended SLIE5 configuration)
-python -m slienet.deploy.export_onnx \
+# 1. Export a trained checkpoint truncated at depth k
+#    (example: k=5, the recommended SLIE5 configuration)
+python scripts/export_onnx.py \
     --checkpoint checkpoints/resnet56_seed0.pth \
     --depth 5 \
     --output slienet_d5.onnx
 
-# Compile to TensorRT FP16 engine on Jetson Orin Nano
-trtexec --onnx=slienet_d5.onnx --fp16 --saveEngine=slienet_d5.engine
+# 2. Compile ONNX to a single TensorRT FP16 engine on Jetson Orin Nano
+bash scripts/build_trt.sh slienet_d5.onnx slienet_d5.engine
 
-# Run on-device latency / energy measurement over 10,000 test samples
-python -m slienet.deploy.measure \
+# 3. Run on-device latency / power / energy measurement
+#    (10,000 CIFAR-100 test samples; p50 / p99 / max latency, FPS, mJ/inference)
+python scripts/measure_trt.py \
     --engine slienet_d5.engine \
     --test-samples 10000
 ```
 
-Replace `--depth 5` with `4` or `6` to compile SLIE4 / SLIE6 configurations.
+Replace `--depth 5` with `4` or `6` to compile SLIE4 or SLIE6 configurations
+reported in Tables 4 and 5.
 
 ## Reproducibility Map
 
 This repository targets reproduction of the **main results** of the paper:
 
-- **Table 1** (ResNet-56 per-IC accuracy, 5 seeds): full training + calibration.
+- **Table 1** (ResNet-56 per-IC accuracy, 5 seeds): full training + calibration
+  via `scripts/train.py` and `scripts/eval.py`.
 - **Tables 4 and 5** (Jetson Orin Nano deployment for SLIE4/5/6): on-device
-  measurement via the deployment scripts above.
+  measurement via the three-step deployment pipeline above.
 - **Figure 4** (engine-call count vs latency): TensorRT compilation in
-  single-fused, partial-fused, and multi-engine variants of SLIE5/SLIE6.
-- **Tables H.1, H.2** (Appendix H — hyperparameters and compute): documented
-  directly in the paper appendix.
+  single-fused, partial-fused, and multi-engine variants of SLIE5/SLIE6 via
+  `scripts/build_trt.sh` and `scripts/measure_trt.py`.
+- **Table 12 (Hyperparameters), Appendix H.2 (Compute)**: documented directly
+  in the paper appendix.
 
 The VGG-16-BN and MobileNetV1 results in Tables 2, 10, and 11 are
 **generalization evidence** showing that the same training and calibration
 pipeline applies to other CIFAR-100 backbones. Reproducing them requires only
-plugging in a standard backbone class; the rest of the pipeline (training loop,
-self-distillation loss, calibration search, deployment export) is unchanged.
+adding a backbone class under `slienet/models/`; the rest of the pipeline
+(training loop, self-distillation loss, calibration search, deployment export)
+is unchanged.
 
 ## Third-Party Assets
 

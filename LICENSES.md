@@ -1,57 +1,32 @@
 # Third-Party Assets and Licenses
 
-This repository builds on the following third-party assets. We thank the authors
-and maintainers.
+This document lists the external datasets, model architectures, and software
+libraries used in this repository, along with their respective licenses.
 
 ## Datasets
 
-### CIFAR-100
-- **Source:** Krizhevsky, A. (2009). *Learning Multiple Layers of Features from
-  Tiny Images.* Technical Report, University of Toronto.
-- **URL:** https://www.cs.toronto.edu/~kriz/cifar.html
-- **License:** Distributed for research use; no formal license file. Cite the
-  technical report when using.
+- **CIFAR-100** (Krizhevsky, 2009).
+  Downloaded automatically through `torchvision.datasets.CIFAR100`.
+  Source: <https://www.cs.toronto.edu/~kriz/cifar.html>
 
-## Model Architectures (re-implemented from published papers)
+## Model Architectures
 
-### ResNet-56
-- **Source:** He, K., Zhang, X., Ren, S., & Sun, J. (2016). *Deep Residual
-  Learning for Image Recognition.* CVPR.
-- **Notes:** Our implementation in `models/resnet56.py` follows the original
-  CIFAR variant (3 stages × 9 residual blocks) from the paper.
+- **ResNet-56** (He et al., "Deep Residual Learning for Image Recognition",
+  CVPR 2016). The implementation in `slienet/models/resnet56.py` is an
+  independent reimplementation written for this project.
 
-### VGG-16-BN
-- **Source:** Simonyan, K., & Zisserman, A. (2015). *Very Deep Convolutional
-  Networks for Large-Scale Image Recognition.* ICLR.
+## Software Libraries
 
-### MobileNetV1
-- **Source:** Howard, A. G., Zhu, M., Chen, B., Kalenichenko, D., Wang, W.,
-  Weyand, T., Andreetto, M., & Adam, H. (2017). *MobileNets: Efficient
-  Convolutional Neural Networks for Mobile Vision Applications.* arXiv:1704.04861.
+| Library      | License                                       | Notes                |
+|--------------|-----------------------------------------------|----------------------|
+| PyTorch      | BSD-3-Clause                                  | Workstation training |
+| torchvision  | BSD-3-Clause                                  | Datasets, transforms |
+| NumPy        | BSD-3-Clause                                  | Numerical utilities  |
+| ONNX         | Apache-2.0                                    | Deployment export    |
+| TensorRT     | NVIDIA Software License Agreement             | Deployment only      |
 
-## Baseline Methods (re-implemented for comparison)
+## License of This Repository
 
-### Shallow-Deep Networks (SDN)
-- **Source:** Kaya, Y., Hong, S., & Dumitras, T. (2019). *Shallow-Deep Networks:
-  Understanding and Mitigating Network Overthinking.* ICML, PMLR 97:3301–3310.
-
-### Zero-Time Waste (ZTW)
-- **Source:** Wołczyk, M., Wójcik, B., Bałazy, K., Podolak, I. T., Tabor, J.,
-  Śmieja, M., & Trzciński, T. (2021). *Zero Time Waste: Recycling Predictions
-  in Early Exit Neural Networks.* NeurIPS 34, 2516–2528.
-
-## Frameworks and Tools
-
-### PyTorch / torchvision
-- **License:** BSD 3-Clause License
-- **URL:** https://github.com/pytorch/pytorch
-
-### NVIDIA TensorRT
-- **License:** Used under the NVIDIA TensorRT SDK License Agreement (standard
-  developer terms).
-- **URL:** https://developer.nvidia.com/tensorrt
-
-## This Repository
-
-The original code in this repository is released under the MIT License
-(see `LICENSE`).
+The original code in this repository is released under the MIT License; see
+`LICENSE` for the full text. Datasets and third-party libraries listed above
+retain their respective licenses.

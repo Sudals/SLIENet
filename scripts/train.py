@@ -44,8 +44,8 @@ def main():
         data_dir=args.data_dir,
     )
 
-    tag = args.tag or f"s{args.seed}"
-    out = os.path.join(args.save_dir, f"slienet_{args.arch}_{tag}.pth")
+    name = args.tag or f"{args.arch}_seed{args.seed}"
+    out = os.path.join(args.save_dir, f"{name}.pth")
     torch.save({
         "state_dict": best_state,
         "acc": best_score,
