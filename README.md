@@ -1,4 +1,4 @@
-# SLIENet: Beyond FLOPs — Train-Full, Deploy-Partial Multi-Exit Inference
+# SLIENet: Beyond FLOPs Train-Full, Deploy-Partial Multi-Exit Inference
 
 Anonymous repository for double-blind NeurIPS 2026 submission. Author and citation
 information will be added upon acceptance.
